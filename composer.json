@@ -3,7 +3,6 @@
     "description": "快递鸟物流查询",
     "type": "library",
     "license": "MIT",
-    "minimum-stability":"stable",
     "authors": [
         {
             "name": "static7",
@@ -15,7 +14,7 @@
     },
     "autoload": {
         "psr-4": {
-            "static7\\Kdniao\\": "src"
+            "static7\\": "src/"
         }
     }
 }

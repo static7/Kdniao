@@ -6,7 +6,7 @@
  * Date: 2016-12-20 15:11
  */
 
-namespace static7\Kdniao;
+namespace static7;
 
 class Kdniao {
     //配置文件
@@ -27,8 +27,9 @@ class Kdniao {
     /**
      * 快递信息详情
      * @param string $number 货单号
-     * @param int $type 文本输出 0-json输出 1 文本输出
+     * @param int    $type 文本输出 0-json输出 1 文本输出
      * @return mixed
+     * @throws \Exception
      * @author staitc7 <static7@qq.com>
      */
     public function kdniaoApiOrder($number = '', $type = 0) {
@@ -51,6 +52,7 @@ class Kdniao {
      * @author staitc7 <static7@qq.com>
      * @param string $number 运单号
      * @return mixed
+     * @throws \Exception
      */
     public function kdniaoApiName($number = '') {
         $info = json_encode(['LogisticCode' => $number]);
@@ -67,6 +69,7 @@ class Kdniao {
      * @param null $requestData 请求内容需进行URL(utf-8)编码。请求内容JSON格式，须和DataType一致。
      * @param null $RequestType 请求指令类型
      * @return mixed|null
+     * @throws \Exception
      */
     private function commonApiData($requestData = null, $RequestType = null) {
         $data = [
@@ -158,6 +161,7 @@ class Kdniao {
                 $string = ['运单号：' . $data['LogisticCode'], '运送公司：' . $name['ShipperName'], '你的快递还没有任何消息哦！'];
             }
         }
+        /** @var TYPE_NAME $string */
         return implode("\n", $string);
     }
 }
