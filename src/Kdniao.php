@@ -392,7 +392,6 @@ class Kdniao
             curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         }
         $result = curl_exec($ch);
-        curl_close($ch);
         if (curl_errno($ch)) {
             $error = sprintf("curl[%s] error[%s]", $this->url, curl_errno($ch) . ':' . curl_error($ch));
             curl_close($ch);
