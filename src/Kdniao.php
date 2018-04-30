@@ -1,86 +1,405 @@
 <?php
 /**
  * Description of Kdniao.php.
- * 快递鸟快递查询类
  * User: static7 <static7@qq.com>
- * Date: 2016-12-20 15:11
+ * Date: 2018/4/29 18:29
  */
 
 namespace static7;
 
-class Kdniao {
-    //配置文件
-    protected $config = [
-        'AppKey' => '',//电商加密私钥，快递鸟提供，注意保管，不要泄漏
-        'EBusinessID' => '',//电商ID
-        'URL' => 'http://api.kdniao.cc/Ebusiness/EbusinessOrderHandle.aspx'//请求的url
-    ];
+use think\facade\{
+    Request,Config
+};
 
-    public function __construct($config = null) {
-        if (!$config['AppKey'] || !$config['EBusinessID']) {
-            throw new \Exception('缺少AppKey或者EBusinessID');
-        } else {
-            $this->config = array_merge($this->config, $config);
+class Kdniao
+{
+    /**
+     * @var $AppKey
+     */
+    protected $AppKey;
+
+    /**
+     * 请求内容需进行URL(utf-8)编码。请求内容JSON格式，须和DataType一致。
+     * @var $RequestData
+     */
+    protected $RequestData;
+    /**
+     * 商户ID，请在我的服务页面查看。
+     * @var $EBusinessID
+     */
+    protected $EBusinessID;
+    /**
+     * 请求指令类型：2002
+     * @var string $RequestTyp
+     */
+    protected $RequestType='2002';
+    /**
+     * 数据内容签名：把(请求内容(未编码)+AppKey)进行MD5加密，然后Base64编码，最后 进行URL(utf-8)编码。详细过程请查看Demo。
+     * @var $DataSign
+     */
+    protected $DataSign;
+    /**
+     * 请求、返回数据类型：只支持JSON格式
+     * @var string $DataType
+     */
+    protected $DataType='2';
+
+    /**
+     * 快递公司名称
+     * @var $ShipperName
+     */
+    protected $ShipperName;
+    /**
+     * 快递公司编码
+     * @var $ShipperCode
+     */
+    protected $ShipperCode;
+
+    /**
+     * 物流单号
+     * @var $LogisticCode
+     */
+    protected $LogisticCode;
+    /***
+     * @var $OrderCode
+     */
+    protected $OrderCode;
+
+    /**
+     * 错误
+     * @var $error
+     */
+    protected $error;
+
+
+    /**
+     * @var string API正式地址
+     */
+    protected $url="http://api.kdniao.cc/Ebusiness/EbusinessOrderHandle.aspx";
+
+    public function __construct(array $config = [])
+    {
+        if (empty($config)) {
+            $config = Config::get('config.kuaidiniao');
+        } else if (empty($config['AppKey']) || empty($config['EBusinessID'])) {
+            throw new Exception('配置 AppKey 和 EBusinessID 不能为空');
         }
+        $this->setAppKey($config['AppKey']);
+        $this->setEBusinessID($config['EBusinessID']);
     }
 
     /**
-     * 快递信息详情
-     * @param string $number 货单号
-     * @param int    $type 文本输出 0-json输出 1 文本输出
      * @return mixed
-     * @throws \Exception
      * @author staitc7 <static7@qq.com>
      */
-    public function kdniaoApiOrder($number = '', $type = 0) {
-        $nameCode = $this->kdniaoApiName($number);
-        if (!$nameCode) {
-            return '快递公司参数异常：单号不存在或者已经过期';
-        }
-        $info = json_encode(['ShipperCode' => $nameCode['ShipperCode'], 'LogisticCode' => $number]);
-        $data = $this->commonApiData($info, 1002);
-        if ((int)$type === 1) {
-            return $this->resolve($data, $nameCode);
-        } else {
-            return $data;
-        }
-
+    public function getAppKey()
+    {
+        return $this->AppKey;
     }
 
     /**
-     * 快递鸟订单号查询快递名称
+     * @param mixed $AppKey
      * @author staitc7 <static7@qq.com>
-     * @param string $number 运单号
+     * @return Kdniao
+     */
+    public function setAppKey($AppKey)
+    {
+        $this->AppKey = $AppKey;
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     * @author staitc7 <static7@qq.com>
+     */
+    public function getRequestData()
+    {
+        return $this->RequestData;
+    }
+
+    /**
+     * @param mixed $RequestData
+     * @author staitc7 <static7@qq.com>
+     * @return Kdniao
+     */
+    public function setRequestData($RequestData)
+    {
+        $this->RequestData = $RequestData;
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     * @author staitc7 <static7@qq.com>
+     */
+    public function getEBusinessID()
+    {
+        return $this->EBusinessID;
+    }
+
+    /**
+     * @param mixed $EBusinessID
+     * @author staitc7 <static7@qq.com>
+     * @return Kdniao
+     */
+    public function setEBusinessID($EBusinessID)
+    {
+        $this->EBusinessID = $EBusinessID;
+        return $this;
+    }
+
+    /**
+     * @return string
+     * @author staitc7 <static7@qq.com>
+     */
+    public function getRequestType()
+    {
+        return $this->RequestType;
+    }
+
+    /**
+     * @param string $RequestType
+     * @author staitc7 <static7@qq.com>
+     * @return Kdniao
+     */
+    public function setRequestType(string $RequestType)
+    {
+        $this->RequestType = $RequestType;
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     * @author staitc7 <static7@qq.com>
+     */
+    public function getDataSign()
+    {
+        return $this->DataSign;
+    }
+
+    /**
+     * @param mixed $DataSign
+     * @author staitc7 <static7@qq.com>
+     * @return Kdniao
+     */
+    public function setDataSign($DataSign)
+    {
+        $this->DataSign = $DataSign;
+        return $this;
+    }
+
+    /**
+     * @return string
+     * @author staitc7 <static7@qq.com>
+     */
+    public function getDataType()
+    {
+        return $this->DataType;
+    }
+
+    /**
+     * @param string $DataType
+     * @author staitc7 <static7@qq.com>
+     * @return Kdniao
+     */
+    public function setDataType(string $DataType)
+    {
+        $this->DataType = $DataType;
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     * @author staitc7 <static7@qq.com>
+     */
+    public function getShipperName()
+    {
+        return $this->ShipperName;
+    }
+
+    /**
+     * @param mixed $ShipperName
+     * @author staitc7 <static7@qq.com>
+     * @return Kdniao
+     */
+    public function setShipperName($ShipperName)
+    {
+        $this->ShipperName = $ShipperName;
+        return $this;
+    }
+
+    /**
+     * @param mixed $LogisticCode
+     * @author staitc7 <static7@qq.com>
+     * @return Kdniao
+     */
+    public function setLogisticCode($LogisticCode)
+    {
+        $this->LogisticCode = $LogisticCode;
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     * @author staitc7 <static7@qq.com>
+     */
+    public function getLogisticCode()
+    {
+        return $this->LogisticCode;
+    }
+
+    /**
+     * @return mixed
+     * @author staitc7 <static7@qq.com>
+     */
+    public function getShipperCode()
+    {
+        return $this->ShipperCode;
+    }
+
+    /**
+     * @param mixed $ShipperCode
+     * @author staitc7 <static7@qq.com>
+     * @return Kdniao
+     */
+    public function setShipperCode($ShipperCode)
+    {
+        $this->ShipperCode = $ShipperCode;
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     * @author staitc7 <static7@qq.com>
+     */
+    public function getOrderCode()
+    {
+        return $this->OrderCode;
+    }
+
+    /**
+     * @param mixed $OrderCode
+     * @author staitc7 <static7@qq.com>
+     * @return Kdniao
+     */
+    public function setOrderCode($OrderCode)
+    {
+        $this->OrderCode = $OrderCode;
+        return $this;
+    }
+
+    /**
+     * 公共参数
+     * @author staitc7 <static7@qq.com>
+     * @param null $param
      * @return mixed
      * @throws \Exception
      */
-    public function kdniaoApiName($number = '') {
-        $info = json_encode(['LogisticCode' => $number]);
-        $data = $this->commonApiData($info, 2002);
-        if ($data['Success']) {
-            return $data['Shippers'][0];
-        } else {
+    private function commonParam($param=null)
+    {
+        $data             = [
+            'EBusinessID' => $this->getEBusinessID(),
+            'RequestType' => $this->getRequestType(),
+            'DataType' => $this->getDataType(),
+            'DataSign' => $this->encrypt($param, $this->getAppKey()),
+            'RequestData' => urlencode($param),
+        ];
+        return $this->sendRequest($data,'post');
+    }
+
+    /**
+     * Json方式 单号识别
+     * @param string $number
+     * @return bool
+     * @throws \Exception
+     */
+    public function getBiscernByWaybill($number = '')
+    {
+        if (empty($number)) {
+            $this->error='号码不能为空';
             return false;
         }
+        $LogisticCode     = json_encode(['LogisticCode' => $number]);
+        $result           = $this->commonParam($LogisticCode,$this->setRequestType(2002));
+
+        //根据公司业务处理返回的信息......
+        if ($this->analyze($result)===false){
+            return false;
+        };
+        
+        return $this->getExpressInfo();
     }
 
     /**
-     * 通用组装转换数组
-     * @param null $requestData 请求内容需进行URL(utf-8)编码。请求内容JSON格式，须和DataType一致。
-     * @param null $RequestType 请求指令类型
-     * @return mixed|null
+     * 查询快递
+     * @author staitc7 <static7@qq.com>
+     * @param string $shipperCode
+     * @param string $logisticCode
+     * @param string $orderCode
+     * @return mixed
      * @throws \Exception
      */
-    private function commonApiData($requestData = null, $RequestType = null) {
-        $data = [
-            'RequestData' => urlencode($requestData),
-            'RequestType' => $RequestType,
-            'EBusinessID' => $this->config['EBusinessID'],
-            'DataType' => '2',
-            'DataSign' => $this->encrypt($requestData, $this->config['AppKey']
-        )];
-        $info = $this->http($this->config['URL'], $data);
-        return $info ? json_decode($info, true) : null;
+    public function getExpressInfo($shipperCode='',$logisticCode='',$orderCode='')
+    {
+        $shipperCode && $this->setShipperCode($shipperCode);
+        $logisticCode && $this->setLogisticCode($logisticCode);
+        $this->setOrderCode($orderCode);
+        if(empty($this->getShipperCode()) || empty($this->getLogisticCode())){
+            throw new \Exception('快递公司编码或物流单号错误');
+        }
+        $param = json_encode([
+            "OrderCode" => "",
+            "ShipperCode" => $this->getShipperCode(),
+            "LogisticCode" => $this->getLogisticCode()
+        ]);
+
+        return $this->commonParam($param,$this->setRequestType(1002));
+    }
+
+    /**
+     * 请求
+     * @author staitc7 <static7@qq.com>
+     * @param string $url
+     * @param array  $param
+     * @param string $method
+     * @return mixed
+     * @throws \Exception
+     */
+    public function sendRequest($param = [], $method = 'get', $url = '')
+    {
+        if ($url) {
+            $this->url = $url;
+        }
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_HEADER, 0);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        $data = http_build_query($param ?? '');
+        $headers=[
+            "application/x-www-form-urlencoded; charset=utf-8",
+            'Content-Length: ' . strlen($data),
+        ];
+        curl_setopt($ch,CURLOPT_HTTPHEADER,$headers);
+        curl_setopt($ch, CURLOPT_USERAGENT, Request::header('user-agent'));
+        if (strtolower($method) == 'get') {
+            curl_setopt($ch, CURLOPT_URL, $this->url . '?' . $data);
+        } else {
+            curl_setopt($ch, CURLOPT_URL, $this->url);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        }
+        $result = curl_exec($ch);
+        curl_close($ch);
+        if (curl_errno($ch)) {
+            $error = sprintf("curl[%s] error[%s]", $this->url, curl_errno($ch) . ':' . curl_error($ch));
+            curl_close($ch);
+            throw new \Exception($error);
+        }
+        curl_close($ch);
+        return $result;
     }
 
     /**
@@ -93,75 +412,35 @@ class Kdniao {
         return urlencode(base64_encode(md5($data . $appkey)));
     }
 
-
     /**
-     * 发送HTTP请求方法，目前只支持CURL发送请求
-     * @param  string $url 请求URL
-     * @param  array $param GET参数数组
-     * @param array|string $data POST的数据，GET请求时该参数无效
-     * @param  string $method 请求方法GET/POST
-     * @return array 响应数据
-     * @throws \Exception
+     * 解析
+     * @author staitc7 <static7@qq.com>
+     * @param string $json
+     * @return mixed
      */
-    protected function http($url, $param, $data = '', $method = 'GET') {
-        $opts = [CURLOPT_TIMEOUT => 30, CURLOPT_RETURNTRANSFER => 1, CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => false];
-
-        /* 根据请求类型设置特定参数 */
-        $opts[CURLOPT_URL] = $url . '?' . http_build_query($param);
-
-        if (strtoupper($method) == 'POST') {
-            $opts[CURLOPT_POST] = 1;
-            $opts[CURLOPT_POSTFIELDS] = $data;
-            if (is_string($data)) { //发送JSON数据
-                $opts[CURLOPT_HTTPHEADER] = ['Content-Type: application/json; charset=utf-8', 'Content-Length: ' . strlen($data)];
-            }
+    private function analyze(string $json='')
+    {
+        $object = json_decode($json,true);
+        if ($object['Success'] === false) {
+            $this->error ='物流单号匹配结果为空';
+            return false;
         }
-
-        /* 初始化并执行curl请求 */
-        $ch = curl_init();
-        curl_setopt_array($ch, $opts);
-        $data = curl_exec($ch);
-        $error = curl_error($ch);
-        curl_close($ch);
-
-        //发生错误，抛出异常
-        if ($error) {
-            throw new \Exception('请求发生错误：' . $error);
-        } else {
-            return $data;
-        }
+        $this->setLogisticCode($object['LogisticCode']);
+        $this->setShipperName($object['Shippers'][0]['ShipperName']); //快递公司名称
+        $this->setShipperCode($object['Shippers'][0]['ShipperCode']); //快递公司编码
+        return true;
     }
 
     /**
-     * 解析返回状态
-     * @param  array $data 解析快递数据
-     * @param string $name 快递中文名称
      * @return mixed
      * @author staitc7 <static7@qq.com>
      */
-    public function resolve($data = [], $name = '') {
-        if ($data['Success']) {
-            $string = ['运单号：' . $data['LogisticCode'], '运送公司：' . $name['ShipperName'],];
-            foreach ($data['Traces'] as $k => $v) {
-                array_push($string, $v['AcceptTime'] . "：" . $v['AcceptStation']);
-            }
-            switch ($data['State']) {
-                case 2:
-                    array_push($string, '你的快递还在途中');
-                    break;
-                case 3:
-                    array_push($string, '你的快递已签收');
-                    break;
-                case 4:
-                    array_push($string, '你的快递出现问题了');
-                    break;
-            }
-        } else {
-            if (empty($data['Traces'])) {
-                $string = ['运单号：' . $data['LogisticCode'], '运送公司：' . $name['ShipperName'], '你的快递还没有任何消息哦！'];
-            }
-        }
-        /** @var TYPE_NAME $string */
-        return implode("\n", $string);
+    public function getError()
+    {
+        return $this->error;
     }
+
+
+
+
 }
